@@ -68,7 +68,7 @@ void A_output(msg_t message)
 
     strcpy(package.payload, message.data);
 
-    B_input(package);
+    tolayer3(0, package);
 }
 
 void B_output(msg_t message) /* need be completed only for extra credit */
@@ -99,6 +99,19 @@ A_init()
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 B_input(packet) struct pkt packet;
 {
+    msg_t message;
+    strcpy(message.data, packet.payload);
+    if(generate_checksum(message.data) == packet.checksum)
+    {
+        tolayer5(1, message.data)
+        
+    }
+    else
+    {
+        //caso o checksum esteja errado
+
+    }
+
 }
 
 /* called when B's timer goes off */
