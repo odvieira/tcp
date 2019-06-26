@@ -107,7 +107,7 @@ void A_output(msg_t message)
     newPackage->checksum = generateChecksum(*newPackage);
     queue_append(&sentPackagesAB, (queue_t*)newPackage);
 
-    starttimer(0, 8);
+    starttimer(1, 10);
     tolayer3(0, *newPackage);
 }
 
@@ -164,13 +164,11 @@ B_input(packet) struct pkt packet;
 
     if(generateChecksum(packet) == packet.checksum)
     {
-        starttimer(1, 8);
         tolayer3(1, generateAckPackage(packet));
         tolayer5(1, message.data);
     }
     else
     {
-        starttimer(1, 8);
         tolayer3(1, generateNackPackage(packet));
     }
 }
