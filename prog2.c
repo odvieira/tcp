@@ -37,16 +37,18 @@ typedef struct pkt
     char payload[20];
 } pkt_t;
 
-int seqnum_global, acknum_global;
+int seqnum_global = 0, acknum_global = 0;
 
-int generate_checksum(char* msg)
+int generate_checksum(pkt_t package)
 {
+    
     int chks = 0;
 
     for (i = 0; i < msg_size; i++)
         chks += msg[i];
 
-    return chks
+
+    return chks + package.seqnum + package.acknum;
 }
 
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
@@ -61,12 +63,15 @@ void A_output(msg_t message)
     package.seqnum = acknum_global;
     package.acknum = package.seqnum + msg_size;
 
-    package.checksum = generate_checksum(message.data);
+ 
 
     seqnum_global += acknum_global;
     acknum_global = package.acknum;
 
     strcpy(package.payload, message.data);
+
+    starttimer(0, 8);
+    package.checksum = generate_checksum(package);
 
     tolayer3(0, package);
 }
@@ -78,6 +83,7 @@ void B_output(msg_t message) /* need be completed only for extra credit */
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(msg_t packet)
 {
+
 }
 
 /* called when A's timer goes off */
@@ -89,9 +95,7 @@ A_timerinterrupt()
 /* entity A routines are called. You can use it to do any initialization */
 A_init()
 {
-    seqnum_global = 0;
-    acknum_global = 0;
-    wraparound = rand();
+ 
 }
 
 /* Note that with simplex transfer from a-to-B, there is no B_output() */
@@ -100,15 +104,35 @@ A_init()
 B_input(packet) struct pkt packet;
 {
     msg_t message;
+    pkt_t ackPackage;
+
     strcpy(message.data, packet.payload);
-    if(generate_checksum(message.data) == packet.checksum)
+    
+    if(packet.seqnum = -1)
     {
-        tolayer5(1, message.data)
+        if(p)
+    }
+    
+    else if(generate_checksum(packet) == packet.checksum)
+    {   
+        ackPackage.seqnum = -1;
+        ackPackage.payload = NULL;
+        ackPackage.checksum = -1;
+        ackPackage.acknum = acknum_global;
+        tolayer3(1, ackPackage);
+        starttimer()
+        tolayer5(1, message.data);
         
     }
     else
     {
-        //caso o checksum esteja errado
+        ackPackage.seqnum = acknum_global;
+        ackPackage.payload[0] = '␆';
+        char string[20];
+        strcat(ackPackage.payload, itoa(packet.acknum, string, 10));
+        ackPackage.acknum = ackPackage.seqnum + 1;
+        ackPackage.checksum = generate_checksum(ackPackage);
+        
 
     }
 
@@ -123,6 +147,7 @@ B_timerinterrupt()
 /* entity B routines are called. You can use it to do any initialization */
 B_init()
 {
+
 }
 
 /*****************************************************************
