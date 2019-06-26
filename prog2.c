@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-
+#include "queue.h"
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
 
@@ -17,6 +17,8 @@
 
 #define BIDIRECTIONAL 0 /* change to 1 if you're doing extra credit */
                         /* and write a routine called B_output */
+#define NACKNUM -2
+#define ACKNUM -1
 
 /* a "msg" is the data unit passed from layer 5 (teachers code) to layer  */
 /* 4 (students' code).  It contains the data (characters) to be delivered */
@@ -31,6 +33,7 @@ typedef struct msg
 /* students must follow. */
 typedef struct pkt
 {
+    struct queue_t *prev, *next;
     int seqnum;
     int acknum;
     int checksum;
@@ -38,17 +41,38 @@ typedef struct pkt
 } pkt_t;
 
 int seqnum_global = 0, acknum_global = 0;
+queue_t** sentPackagesAB = NULL;
+queue_t** sentPackagesBA = NULL;
 
-int generate_checksum(pkt_t package)
-{
-    
-    int chks = 0;
+int generateChecksum(pkt_t package)
+{    
+    int chks = 0, i, msg_size = strlen(package.payload);
 
     for (i = 0; i < msg_size; i++)
-        chks += msg[i];
-
+        chks += package.payload[i];
 
     return chks + package.seqnum + package.acknum;
+}
+
+pkt_t generateAckPackage(pkt_t packet)
+{
+    pkt_t ackPackage;
+
+    ackPackage.seqnum = ACKNUM;
+    packet.payload[0] = '\0';
+    ackPackage.acknum = packet.acknum;
+    ackPackage.checksum = generateChecksum(ackPackage);
+}
+
+pkt_t generateNackPackage(pkt_t packet)
+{
+    pkt_t ackPackage;
+    int i;
+
+    ackPackage.seqnum = NACKNUM;
+    packet.payload[0] = '\0';
+    ackPackage.acknum = packet.acknum;
+    ackPackage.checksum = generate_checksum(ackPackage);
 }
 
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
@@ -58,32 +82,58 @@ void A_output(msg_t message)
 {
     int i, msg_size = strlen(message.data), count;
     char x;
-    pkt_t package;
+    pkt_t* newPackage;
 
-    package.seqnum = acknum_global;
-    package.acknum = package.seqnum + msg_size;
-
- 
+    newPackage->seqnum = acknum_global;
+    newPackage->acknum = newPackage->seqnum + msg_size;
 
     seqnum_global += acknum_global;
-    acknum_global = package.acknum;
+    acknum_global = newPackage->acknum;
 
-    strcpy(package.payload, message.data);
+    strcpy(newPackage->payload, message.data);
+    newPackage->checksum = generate_checksum(newPackage);
+    queue_append(sentPackagesAB, (queue_t*)newPackage);
 
     starttimer(0, 8);
-    package.checksum = generate_checksum(package);
-
-    tolayer3(0, package);
+    tolayer3(0, *newPackage);
 }
 
 void B_output(msg_t message) /* need be completed only for extra credit */
 {
 }
 
-/* called from layer 3, when a packet arrives for layer 4 */
-void A_input(msg_t packet)
+pkt_t* findSentAB(int acknum)
 {
+    pkt_t* aux;
+    for (aux = (*sentPackagesAB)->next; \
+        aux != sentPackagesAB && aux->acknum != acknum; \
+        aux = aux->next)
+    { }
 
+    if(aux->acknum != acknum)
+        return NULL;
+
+    return aux;    
+}
+
+/* called from layer 3, when a packet arrives for layer 4 */
+void A_input(pkt_t packet)
+{
+    msg_t message;
+    
+    if(packet.seqnum == ACKNUM)
+        stoptimer(0);
+    else if (packet.seqnum == NACKNUM)
+    {
+        pkt_t* aux = findSentAB(packet.acknum);
+        strcpy(message.data, aux->payload);
+        stoptimer(0);
+        A_output(message);
+    }
+    else
+    {
+        /* code for bidirectional */
+    }
 }
 
 /* called when A's timer goes off */
@@ -107,35 +157,18 @@ B_input(packet) struct pkt packet;
     pkt_t ackPackage;
 
     strcpy(message.data, packet.payload);
-    
-    if(packet.seqnum = -1)
-    {
-        if(p)
-    }
-    
-    else if(generate_checksum(packet) == packet.checksum)
+
+    if(generate_checksum(packet) == packet.checksum)
     {   
-        ackPackage.seqnum = -1;
-        ackPackage.payload = NULL;
-        ackPackage.checksum = -1;
-        ackPackage.acknum = acknum_global;
-        tolayer3(1, ackPackage);
-        starttimer()
+        starttimer();
+        tolayer3(1, generateAckPackage(packet));
         tolayer5(1, message.data);
-        
     }
     else
     {
-        ackPackage.seqnum = acknum_global;
-        ackPackage.payload[0] = '␆';
-        char string[20];
-        strcat(ackPackage.payload, itoa(packet.acknum, string, 10));
-        ackPackage.acknum = ackPackage.seqnum + 1;
-        ackPackage.checksum = generate_checksum(ackPackage);
-        
-
+        starttimer();
+        tolayer3(1, generateNackPackage(packet));
     }
-
 }
 
 /* called when B's timer goes off */
