@@ -41,11 +41,11 @@ typedef struct pkt
 } pkt_t;
 
 int seqnum_global = 0, acknum_global = 0;
-queue_t** sentPackagesAB = NULL;
-queue_t** sentPackagesBA = NULL;
+queue_t* sentPackagesAB = NULL;
+queue_t* sentPackagesBA = NULL;
 
 int generateChecksum(pkt_t package)
-{    
+{
     int chks = 0, i, msg_size = strlen(package.payload);
 
     for (i = 0; i < msg_size; i++)
@@ -67,12 +67,25 @@ pkt_t generateAckPackage(pkt_t packet)
 pkt_t generateNackPackage(pkt_t packet)
 {
     pkt_t ackPackage;
-    int i;
 
     ackPackage.seqnum = NACKNUM;
     packet.payload[0] = '\0';
     ackPackage.acknum = packet.acknum;
     ackPackage.checksum = generateChecksum(ackPackage);
+}
+
+pkt_t* findSentAB(int acknum)
+{
+    pkt_t* aux;
+    for (aux = (pkt_t*)(sentPackagesAB->next); \
+        aux != sentPackagesAB && aux->acknum != acknum; \
+        aux = aux->next)
+    { }
+
+    if(aux->acknum != acknum)
+        return NULL;
+
+    return aux;
 }
 
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
@@ -82,7 +95,7 @@ void A_output(msg_t message)
 {
     int i, msg_size = strlen(message.data), count;
     char x;
-    pkt_t* newPackage;
+    pkt_t* newPackage = (pkt_t*)malloc(sizeof(pkt_t));
 
     newPackage->seqnum = acknum_global;
     newPackage->acknum = newPackage->seqnum + msg_size;
@@ -92,7 +105,7 @@ void A_output(msg_t message)
 
     strcpy(newPackage->payload, message.data);
     newPackage->checksum = generateChecksum(*newPackage);
-    queue_append(sentPackagesAB, (queue_t*)newPackage);
+    queue_append(&sentPackagesAB, (queue_t*)newPackage);
 
     starttimer(0, 8);
     tolayer3(0, *newPackage);
@@ -102,25 +115,11 @@ void B_output(msg_t message) /* need be completed only for extra credit */
 {
 }
 
-pkt_t* findSentAB(int acknum)
-{
-    pkt_t* aux;
-    for (aux = (*sentPackagesAB)->next; \
-        aux != sentPackagesAB && aux->acknum != acknum; \
-        aux = aux->next)
-    { }
-
-    if(aux->acknum != acknum)
-        return NULL;
-
-    return aux;    
-}
-
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(pkt_t packet)
 {
     msg_t message;
-    
+
     if(packet.seqnum == ACKNUM)
     {
         stoptimer(0);
@@ -150,7 +149,7 @@ A_timerinterrupt()
 /* entity A routines are called. You can use it to do any initialization */
 A_init()
 {
- 
+
 }
 
 /* Note that with simplex transfer from a-to-B, there is no B_output() */
@@ -164,14 +163,14 @@ B_input(packet) struct pkt packet;
     strcpy(message.data, packet.payload);
 
     if(generateChecksum(packet) == packet.checksum)
-    {   
-        starttimer();
+    {
+        starttimer(1, 8);
         tolayer3(1, generateAckPackage(packet));
         tolayer5(1, message.data);
     }
     else
     {
-        starttimer();
+        starttimer(1, 8);
         tolayer3(1, generateNackPackage(packet));
     }
 }
