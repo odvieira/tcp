@@ -72,7 +72,7 @@ pkt_t generateNackPackage(pkt_t packet)
     ackPackage.seqnum = NACKNUM;
     packet.payload[0] = '\0';
     ackPackage.acknum = packet.acknum;
-    ackPackage.checksum = generate_checksum(ackPackage);
+    ackPackage.checksum = generateChecksum(ackPackage);
 }
 
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
@@ -91,7 +91,7 @@ void A_output(msg_t message)
     acknum_global = newPackage->acknum;
 
     strcpy(newPackage->payload, message.data);
-    newPackage->checksum = generate_checksum(newPackage);
+    newPackage->checksum = generateChecksum(*newPackage);
     queue_append(sentPackagesAB, (queue_t*)newPackage);
 
     starttimer(0, 8);
@@ -122,13 +122,13 @@ void A_input(pkt_t packet)
     msg_t message;
     
     if(packet.seqnum == ACKNUM)
+    {
         stoptimer(0);
+        queue_remove(sentPackagesAB, (queue_t*)findSentAB(packet.acknum));
+    }
     else if (packet.seqnum == NACKNUM)
     {
-        pkt_t* aux = findSentAB(packet.acknum);
-        strcpy(message.data, aux->payload);
-        stoptimer(0);
-        A_output(message);
+        A_timerinterrupt();
     }
     else
     {
@@ -139,6 +139,11 @@ void A_input(pkt_t packet)
 /* called when A's timer goes off */
 A_timerinterrupt()
 {
+    msg_t message;
+    pkt_t* aux = findSentAB(acknum_global);
+    strcpy(message.data, aux->payload);
+    stoptimer(0);
+    A_output(message);
 }
 
 /* the following routine will be called once (only) before any other */
@@ -158,7 +163,7 @@ B_input(packet) struct pkt packet;
 
     strcpy(message.data, packet.payload);
 
-    if(generate_checksum(packet) == packet.checksum)
+    if(generateChecksum(packet) == packet.checksum)
     {   
         starttimer();
         tolayer3(1, generateAckPackage(packet));
@@ -346,7 +351,7 @@ init() /* initialize the simulator */
         printf("It is likely that random number generation on your machine\n");
         printf("is different from what this emulator expects.  Please take\n");
         printf("a look at the routine jimsrand() in the emulator code. Sorry. \n");
-        exit();
+        exit(0);
     }
 
     ntolayer3 = 0;
@@ -378,7 +383,7 @@ generate_next_arrival()
 {
     double x, log(), ceil();
     struct event *evptr;
-    char *malloc();
+    //char  *malloc();
     float ttime;
     int tempint;
 
@@ -492,7 +497,7 @@ float increment;
 
     struct event *q;
     struct event *evptr;
-    char *malloc();
+    //char *malloc();
 
     if (TRACE > 2)
         printf("          START TIMER: starting timer at %f\n", time);
@@ -519,7 +524,7 @@ struct pkt packet;
 {
     struct pkt *mypktptr;
     struct event *evptr, *q;
-    char *malloc();
+    //char *malloc();
     float lastime, x, jimsrand();
     int i;
 
